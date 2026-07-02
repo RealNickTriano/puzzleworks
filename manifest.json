@@ -8,7 +8,7 @@
       "tagline": "Chain neighboring tiles that differ by exactly 1. A perfect chain covers all 36.",
       "difficulty": "medium",
       "summary": "A 6x6 grid of numbered tiles. Drag from tile to tile to build one long chain where each step moves to an adjacent tile whose value differs by exactly 1; dragging backward undoes a step. The goal is the longest possible chain, with a perfect solve covering all 36 tiles.",
-      "model": "claude-sonnet-4-6"
+      "model": "claude-fable-5"
     }
   ]
 }
