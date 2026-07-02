@@ -1,0 +1,11 @@
+{
+  "name": "one-per-day",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "daily": "node scripts/daily.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.0"
+  }
+}

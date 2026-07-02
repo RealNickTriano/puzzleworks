@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>DELTA — a one-step puzzle</title>
+<!-- PUZZLE-META {"title":"DELTA","tagline":"Chain neighboring tiles that differ by exactly 1. A perfect chain covers all 36.","difficulty":"medium"} -->
+<style>
+  :root{
+    --paper:#edf1f4;
+    --paper-line:#dfe6ec;
+    --ink:#1f2c3a;
+    --ink-soft:#5b6b7c;
+    --gold:#c98a12;
+    --card:#ffffff;
+    --shadow:0 1px 2px rgba(31,44,58,.08), 0 6px 18px rgba(31,44,58,.08);
+    --radius:14px;
+    --tile-gap:8px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0;}
+  body{
+    font-family:"Avenir Next","Segoe UI",system-ui,-apple-system,sans-serif;
+    background:
+      linear-gradient(var(--paper-line) 1px, transparent 1px) 0 0/100% 28px,
+      linear-gradient(90deg, var(--paper-line) 1px, transparent 1px) 0 0/28px 100%,
+      var(--paper);
+    color:var(--ink);
+    min-height:100vh;
+    display:flex; flex-direction:column; align-items:center;
+    touch-action:manipulation;
+  }
+  header{ text-align:center; margin:26px 16px 6px; }
+  .brand{
+    font-size:44px; font-weight:800; letter-spacing:.12em; margin:0;
+    font-family:Georgia,"Times New Roman",serif;
+  }
+  .brand .tri{ color:var(--gold); font-family:inherit; }
+  .tagline{ margin:4px 0 0; color:var(--ink-soft); font-size:14px; letter-spacing:.02em;}
+  .puzzle-id{ margin:2px 0 0; font-size:12px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.14em;}
+
+  .hud{
+    display:flex; gap:22px; align-items:baseline; margin:14px 0 10px;
+    font-variant-numeric:tabular-nums;
+  }
+  .hud .stat{ text-align:center; }
+  .hud .num{ font-size:26px; font-weight:700; }
+  .hud .num small{ font-size:14px; font-weight:500; color:var(--ink-soft); }
+  .hud .lbl{ font-size:11px; text-transform:uppercase; letter-spacing:.12em; color:var(--ink-soft); }
+  .hud .num.gold{ color:var(--gold); }
+
+  .board-wrap{ position:relative; width:min(92vw,430px); }
+  .board{
+    position:relative;
+    display:grid;
+    grid-template-columns:repeat(6,1fr);
+    gap:var(--tile-gap);
+    background:var(--card);
+    border-radius:var(--radius);
+    padding:12px;
+    box-shadow:var(--shadow);
+    user-select:none;
+    touch-action:none;
+  }
+  .tile{
+    position:relative;
+    aspect-ratio:1;
+    border:none;
+    border-radius:10px;
+    font:inherit;
+    font-size:clamp(18px,5.4vw,26px);
+    font-weight:700;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+    color:var(--tc);
+    background:var(--tb);
+    transition:transform .12s ease, background-color .15s ease, color .15s ease, box-shadow .15s ease;
+  }
+  .tile:focus-visible{ outline:3px solid var(--ink); outline-offset:2px; }
+  .tile.on{
+    background:var(--ts);
+    color:#fff;
+    transform:scale(.96);
+  }
+  .tile.head{ box-shadow:0 0 0 3px var(--ink) inset; }
+  .tile .hintdot{
+    position:absolute; top:6px; right:6px;
+    width:8px; height:8px; border-radius:50%;
+    background:var(--gold);
+    display:none;
+  }
+  .tile.hinted .hintdot{ display:block; }
+  .tile.pop{ animation:pop .35s ease; }
+  @keyframes pop{ 40%{ transform:scale(1.12);} 100%{ transform:scale(.96);} }
+
+  svg.trace{
+    position:absolute; inset:12px; width:calc(100% - 24px); height:calc(100% - 24px);
+    pointer-events:none;
+  }
+  .trace path{
+    fill:none;
+    stroke:var(--ink);
+    stroke-opacity:.9;
+    stroke-linecap:round; stroke-linejoin:round;
+  }
+  .trace path.flow{
+    stroke:#fff; stroke-opacity:.85;
+    stroke-dasharray:2 14;
+    animation:flow 1.1s linear infinite;
+  }
+  @keyframes flow{ to{ stroke-dashoffset:-16; } }
+
+  .controls{ display:flex; gap:10px; margin:16px 0 8px; flex-wrap:wrap; justify-content:center;}
+  .btn{
+    font:inherit; font-size:14px; font-weight:600;
+    padding:10px 18px;
+    border-radius:999px;
+    border:1.5px solid var(--ink);
+    background:var(--card); color:var(--ink);
+    cursor:pointer;
+    transition:transform .1s ease, background-color .15s ease;
+  }
+  .btn:hover{ background:var(--ink); color:var(--card); }
+  .btn:active{ transform:scale(.96); }
+  .btn.quiet{ border-color:transparent; color:var(--ink-soft); background:transparent; }
+  .btn.quiet:hover{ color:var(--ink); background:transparent; text-decoration:underline; }
+
+  .msg{ min-height:22px; font-size:14px; color:var(--ink-soft); text-align:center; margin:2px 16px 26px; max-width:430px;}
+  .msg.gold{ color:var(--gold); font-weight:700; }
+
+  /* modal */
+  .veil{
+    position:fixed; inset:0; background:rgba(31,44,58,.45);
+    display:flex; align-items:center; justify-content:center;
+    padding:20px; z-index:10;
+  }
+  .veil[hidden]{ display:none; }
+  .modal{
+    background:var(--card); border-radius:var(--radius);
+    max-width:400px; width:100%;
+    padding:26px 26px 22px;
+    box-shadow:var(--shadow);
+  }
+  .modal h2{ margin:0 0 10px; font-family:Georgia,serif; letter-spacing:.06em;}
+  .modal p{ font-size:15px; line-height:1.5; color:var(--ink); margin:8px 0;}
+  .modal p.dim{ color:var(--ink-soft); font-size:13.5px;}
+  .mini{
+    display:flex; gap:6px; margin:14px 0;
+  }
+  .mini span{
+    width:44px; height:44px; border-radius:9px;
+    display:flex; align-items:center; justify-content:center;
+    font-weight:700; font-size:18px;
+    background:var(--tb); color:var(--tc);
+  }
+  .mini span.sel{ background:var(--ts); color:#fff;}
+  .modal .btn{ margin-top:10px; width:100%;}
+  .share-row{ display:flex; gap:10px; }
+  .share-row .btn{ flex:1; }
+
+  @media (prefers-reduced-motion: reduce){
+    .trace path.flow{ animation:none; }
+    .tile, .btn{ transition:none; }
+    .tile.pop{ animation:none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1 class="brand"><span class="tri">Δ</span>DELTA</h1>
+  <p class="tagline">Chain neighbors that differ by exactly&nbsp;1.</p>
+  <p class="puzzle-id" id="puzzleId"></p>
+</header>
+
+<div class="hud">
+  <div class="stat"><div class="num" id="chainLen">0<small>/36</small></div><div class="lbl">Chain</div></div>
+  <div class="stat"><div class="num" id="bestLen">0</div><div class="lbl">Best</div></div>
+</div>
+
+<div class="board-wrap">
+  <div class="board" id="board"></div>
+  <svg class="trace" id="trace"></svg>
+</div>
+
+<div class="controls">
+  <button class="btn" id="clearBtn">Clear chain</button>
+  <button class="btn" id="hintBtn">Hint</button>
+  <button class="btn" id="newBtn">New puzzle</button>
+  <button class="btn quiet" id="helpBtn">How to play</button>
+</div>
+<p class="msg" id="msg"></p>
+
+<!-- how to play -->
+<div class="veil" id="helpVeil" hidden>
+  <div class="modal">
+    <h2>How to play</h2>
+    <p>Drag (or tap) from tile to tile to build one long chain. Each step must move to a <strong>touching tile</strong> whose number is <strong>exactly 1 higher or lower</strong>.</p>
+    <div class="mini" id="miniDemo"></div>
+    <p>Equal numbers don't link. No tile twice. Start anywhere.</p>
+    <p class="dim">Any chain is a start — a <strong>perfect chain</strong> visits all 36 tiles, and every board has at least one. Drag backward to undo a step.</p>
+    <button class="btn" id="helpClose">Play</button>
+  </div>
+</div>
+
+<!-- win -->
+<div class="veil" id="winVeil" hidden>
+  <div class="modal">
+    <h2>Perfect. <span style="color:var(--gold)">Δ36</span></h2>
+    <p id="winText">You threaded every tile into a single chain.</p>
+    <div class="share-row">
+      <button class="btn" id="shareBtn">Copy result</button>
+      <button class="btn" id="winNew">New puzzle</button>
+    </div>
+    <button class="btn quiet" id="winClose">Keep admiring</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const N = 6, CELLS = N * N;
+  const board = document.getElementById('board');
+  const trace = document.getElementById('trace');
+  const msg = document.getElementById('msg');
+
+  // ---------- seeded rng ----------
+  function mulberry32(a){
+    return function(){
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  const EPOCH = Date.UTC(2026, 0, 1);
+  function todaySeedInfo(){
+    const now = new Date();
+    const dayUTC = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    const num = Math.floor((dayUTC - EPOCH) / 86400000) + 1;
+    return { seed: 0xD31A + num * 9973, label: 'Daily no. ' + num };
+  }
+
+  // ---------- geometry ----------
+  const nbrs = i => {
+    const r = (i / N) | 0, c = i % N, out = [];
+    if (r > 0) out.push(i - N);
+    if (r < N - 1) out.push(i + N);
+    if (c > 0) out.push(i - 1);
+    if (c < N - 1) out.push(i + 1);
+    return out;
+  };
+
+  // ---------- puzzle generation ----------
+  // 1) build a Hamiltonian path (Warnsdorff + backtracking)
+  function hamPath(rng){
+    for (let attempt = 0; attempt < 50; attempt++){
+      const start = (rng() * CELLS) | 0;
+      const visited = new Array(CELLS).fill(false);
+      const path = [start];
+      visited[start] = true;
+      const deg = i => nbrs(i).filter(j => !visited[j]).length;
+      let steps = 0;
+      const ok = (function dfs(cur){
+        if (++steps > 200000) return false;
+        if (path.length === CELLS) return true;
+        const opts = nbrs(cur).filter(j => !visited[j])
+          .map(j => ({ j, d: deg(j), r: rng() }))
+          .sort((a, b) => a.d - b.d || a.r - b.r);
+        for (const { j } of opts){
+          visited[j] = true; path.push(j);
+          if (dfs(j)) return true;
+          visited[j] = false; path.pop();
+        }
+        return false;
+      })(start);
+      if (ok) return path;
+    }
+    return null; // practically unreachable on 6x6
+  }
+  // 2) walk the path assigning values that step ±1, clamped to 1..9
+  function makePuzzle(seed){
+    const rng = mulberry32(seed);
+    const path = hamPath(rng);
+    const values = new Array(CELLS).fill(0);
+    let v = 2 + ((rng() * 6) | 0); // 2..7
+    values[path[0]] = v;
+    for (let k = 1; k < CELLS; k++){
+      const up = v < 9, down = v > 1;
+      v += (up && down) ? (rng() < .5 ? 1 : -1) : (up ? 1 : -1);
+      values[path[k]] = v;
+    }
+    return { values, solution: path };
+  }
+
+  // ---------- value palette (functional: closeness in hue = linkable) ----------
+  function tileColors(v){
+    const h = 180 + (v - 1) / 8 * 128;           // teal → violet-magenta
+    return {
+      bg:  `hsl(${h} 42% 89%)`,
+      txt: `hsl(${h} 48% 30%)`,
+      sel: `hsl(${h} 46% 44%)`
+    };
+  }
+
+  // ---------- state ----------
+  let values = [], solution = [], chain = [], best = 0,
+      hintReveal = 0, hintsUsed = false, mode = 'daily', label = '';
+  const tiles = [];
+
+  // ---------- board ----------
+  for (let i = 0; i < CELLS; i++){
+    const b = document.createElement('button');
+    b.className = 'tile';
+    b.dataset.i = i;
+    b.setAttribute('aria-label', 'tile');
+    b.innerHTML = '<span class="v"></span><span class="hintdot"></span>';
+    board.appendChild(b);
+    tiles.push(b);
+  }
+
+  function loadPuzzle(seed, lbl, m){
+    ({ values, solution } = makePuzzle(seed));
+    mode = m; label = lbl;
+    chain = []; best = 0; hintReveal = 0; hintsUsed = false;
+    document.getElementById('puzzleId').textContent = lbl;
+    for (let i = 0; i < CELLS; i++){
+      const c = tileColors(values[i]);
+      tiles[i].style.setProperty('--tb', c.bg);
+      tiles[i].style.setProperty('--tc', c.txt);
+      tiles[i].style.setProperty('--ts', c.sel);
+      tiles[i].querySelector('.v').textContent = values[i];
+      tiles[i].setAttribute('aria-label', 'tile value ' + values[i]);
+      tiles[i].classList.remove('hinted');
+    }
+    setMsg('');
+    render();
+  }
+
+  // ---------- rendering ----------
+  const chainSet = () => new Set(chain);
+  function render(){
+    const inChain = chainSet();
+    for (let i = 0; i < CELLS; i++){
+      tiles[i].classList.toggle('on', inChain.has(i));
+      tiles[i].classList.toggle('head', chain.length > 0 && chain[chain.length - 1] === i);
+    }
+    document.getElementById('chainLen').innerHTML = chain.length + '<small>/36</small>';
+    const bestEl = document.getElementById('bestLen');
+    bestEl.textContent = best;
+    bestEl.classList.toggle('gold', best === CELLS);
+    drawTrace();
+  }
+  function center(i){
+    const br = board.getBoundingClientRect();
+    const tr = tiles[i].getBoundingClientRect();
+    return [tr.left - br.left - 12 + tr.width / 2, tr.top - br.top - 12 + tr.height / 2];
+  }
+  function drawTrace(){
+    trace.setAttribute('viewBox', `0 0 ${board.clientWidth - 24} ${board.clientHeight - 24}`);
+    if (chain.length < 2){ trace.innerHTML = ''; return; }
+    const d = chain.map((i, k) => (k ? 'L' : 'M') + center(i).map(x => x.toFixed(1)).join(' ')).join(' ');
+    const w = Math.max(5, tiles[0].clientWidth * .16);
+    trace.innerHTML =
+      `<path d="${d}" stroke-width="${w}"/>` +
+      `<path class="flow" d="${d}" stroke-width="${Math.max(2, w * .38)}"/>`;
+  }
+
+  // ---------- chain logic ----------
+  const linkable = (a, b) => Math.abs(values[a] - values[b]) === 1 && nbrs(a).includes(b);
+
+  function tryStep(i){
+    const len = chain.length;
+    if (len === 0){ chain = [i]; render(); return; }
+    const last = chain[len - 1];
+    if (i === last) return;
+    if (len > 1 && i === chain[len - 2]){ chain.pop(); render(); return; } // backtrack
+    if (!chain.includes(i) && linkable(last, i)){
+      chain.push(i);
+      tiles[i].classList.remove('pop'); void tiles[i].offsetWidth; tiles[i].classList.add('pop');
+      render();
+      if (chain.length === CELLS) win();
+      else if (chain.length > best){ best = chain.length; render(); }
+    }
+  }
+  function tapTile(i){
+    const len = chain.length;
+    if (len && i === chain[len - 1]){ chain.pop(); render(); return; }       // tap head = undo
+    if (len && (chain.includes(i) || !linkable(chain[len - 1], i))){
+      if (!chain.includes(i)){ chain = [i]; render(); }                       // restart elsewhere
+      return;
+    }
+    tryStep(i);
+    if (chain.length > best){ best = chain.length; render(); }
+  }
+
+  // ---------- input: drag + tap ----------
+  let dragging = false, startIdx = -1;
+  function tileFromPoint(x, y){
+    const el = document.elementFromPoint(x, y);
+    const t = el && el.closest ? el.closest('.tile') : null;
+    if (!t) return -1;
+    const r = t.getBoundingClientRect();
+    const mx = (x - r.left) / r.width, my = (y - r.top) / r.height;
+    // only register near the tile's middle so corners aren't clipped accidentally
+    return (mx > .12 && mx < .88 && my > .12 && my < .88) ? +t.dataset.i : -1;
+  }
+  board.addEventListener('pointerdown', e => {
+    const i = tileFromPoint(e.clientX, e.clientY);
+    if (i < 0) return;
+    startIdx = i;
+    const len = chain.length;
+    if (len && (i === chain[len - 1] || (len > 1 && i === chain[len - 2]) || (!chain.includes(i) && linkable(chain[len - 1], i)))){
+      dragging = true;
+      tryStep(i); // continue existing chain (or backtrack one)
+    } else if (!chain.includes(i)){
+      dragging = true;
+      chain = [i]; render();
+    }
+    e.preventDefault();
+  });
+  document.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    const i = tileFromPoint(e.clientX, e.clientY);
+    if (i >= 0) tryStep(i);
+  });
+  document.addEventListener('pointerup', () => { dragging = false; });
+  board.addEventListener('click', e => {
+    // keyboard activation only (Enter/Space fire click with detail 0); pointer input is handled above
+    if (e.detail !== 0) return;
+    const t = e.target.closest('.tile');
+    if (t) tapTile(+t.dataset.i);
+  });
+
+  window.addEventListener('resize', drawTrace);
+
+  // ---------- hint ----------
+  document.getElementById('hintBtn').addEventListener('click', () => {
+    hintsUsed = true;
+    hintReveal = Math.min(hintReveal === 0 ? 2 : hintReveal + 1, 8);
+    tiles.forEach(t => t.classList.remove('hinted'));
+    for (let k = 0; k < hintReveal; k++) tiles[solution[k]].classList.add('hinted');
+    setMsg(hintReveal <= 2
+      ? 'Gold dots mark the first steps of one perfect chain.'
+      : 'Revealed ' + hintReveal + ' steps of a perfect chain.');
+  });
+
+  // ---------- controls ----------
+  document.getElementById('clearBtn').addEventListener('click', () => { chain = []; setMsg(''); render(); });
+  document.getElementById('newBtn').addEventListener('click', newRandom);
+  function newRandom(){
+    loadPuzzle((Math.random() * 2 ** 31) | 0, 'Random shuffle', 'random');
+  }
+
+  function setMsg(t, gold){
+    msg.textContent = t;
+    msg.classList.toggle('gold', !!gold);
+  }
+
+  // ---------- win ----------
+  function win(){
+    best = CELLS; render();
+    document.getElementById('winText').textContent =
+      'You threaded all 36 tiles into a single chain' + (hintsUsed ? ' (with a nudge from hints).' : '. No hints. Flawless.');
+    document.getElementById('winVeil').hidden = false;
+  }
+  document.getElementById('winClose').addEventListener('click', () => document.getElementById('winVeil').hidden = true);
+  document.getElementById('winNew').addEventListener('click', () => { document.getElementById('winVeil').hidden = true; newRandom(); });
+  document.getElementById('shareBtn').addEventListener('click', async e => {
+    const text = `ΔDELTA ${label} — ${best}/36${hintsUsed ? ' (hints)' : ''}${best === 36 ? ' 🏆' : ''}`;
+    try{ await navigator.clipboard.writeText(text); e.target.textContent = 'Copied!'; }
+    catch{ setMsg(text); }
+    setTimeout(() => e.target.textContent = 'Copy result', 1400);
+  });
+
+  // ---------- help ----------
+  const helpVeil = document.getElementById('helpVeil');
+  document.getElementById('helpBtn').addEventListener('click', () => helpVeil.hidden = false);
+  document.getElementById('helpClose').addEventListener('click', () => helpVeil.hidden = true);
+  // mini demo strip: 3 4 5 4 3 with middle selected
+  const demoVals = [3, 4, 5, 4], demo = document.getElementById('miniDemo');
+  demoVals.forEach((v, k) => {
+    const s = document.createElement('span');
+    const c = tileColors(v);
+    s.textContent = v;
+    if (k < 3){ s.classList.add('sel'); s.style.background = c.sel; }
+    else { s.style.background = c.bg; s.style.color = c.txt; }
+    demo.appendChild(s);
+  });
+
+  // ---------- go ----------
+  const t = todaySeedInfo();
+  loadPuzzle(t.seed, t.label, 'daily');
+  helpVeil.hidden = false;
+})();
+</script>
+</body>
+</html>
