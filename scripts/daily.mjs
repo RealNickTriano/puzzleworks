@@ -73,7 +73,7 @@ async function callAnthropic(messages) {
     },
     body: JSON.stringify({
       model,
-      max_tokens: 32000,
+      max_tokens: 64000,
       stream: true, // non-streaming waits on the full generation, which blows past undici's 5-min headers timeout
       messages,
     }),
