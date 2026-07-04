@@ -2,6 +2,15 @@
   "site": "Puzzleworks",
   "puzzles": [
     {
+      "date": "2026-07-04",
+      "file": "puzzles/2026-07-04.html",
+      "title": "Lumen Vault",
+      "tagline": "Flip brass mirrors to bend one ray of lamplight onto every gem.",
+      "difficulty": "medium",
+      "summary": "A single light beam enters an 8x8 vault; tapping any brass mirror flips it between / and \\ tilts, instantly re-routing the reflected beam. The goal is to have the beam pass through all four gems at once, in as few mirror flips as possible against a computed par. Visual style: a dark bronze-and-candlelight treasure vault with a glowing golden beam, brass medallion mirrors, and jewel-toned gems — any beam-routing / mirror-rotation optics mechanic would be a clone of this.",
+      "model": "claude-fable-5"
+    },
+    {
       "date": "2026-07-03",
       "file": "puzzles/2026-07-03.html",
       "title": "Twin Lanterns",

@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- PUZZLE-META {"title":"Lumen Vault","tagline":"Flip brass mirrors to bend one ray of lamplight onto every gem.","difficulty":"medium","summary":"A single light beam enters an 8x8 vault; tapping any brass mirror flips it between / and \\ tilts, instantly re-routing the reflected beam. The goal is to have the beam pass through all four gems at once, in as few mirror flips as possible against a computed par. Visual style: a dark bronze-and-candlelight treasure vault with a glowing golden beam, brass medallion mirrors, and jewel-toned gems — any beam-routing / mirror-rotation optics mechanic would be a clone of this."} -->
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Lumen Vault</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  height:100dvh;overflow:hidden;display:flex;flex-direction:column;align-items:center;
+  font-family:Georgia,'Times New Roman',serif;color:#e9d6a8;
+  background:
+    radial-gradient(120vmax 70vmax at 50% -20%,rgba(255,196,87,.10),transparent 60%),
+    repeating-linear-gradient(45deg,rgba(216,169,78,.03) 0 2px,transparent 2px 16px),
+    linear-gradient(#151009,#0a0704);
+}
+.wrap{margin:auto;display:flex;flex-direction:column;align-items:center;gap:.55rem;padding:.6rem;width:100%}
+h1{font-weight:400;font-size:clamp(1.3rem,6vw,2rem);letter-spacing:.3em;text-transform:uppercase;
+  color:#f0cf87;text-shadow:0 0 20px rgba(240,200,110,.35);text-align:center}
+h1 .orn{color:#8a6a33;font-size:.7em;letter-spacing:0}
+.tag{font-style:italic;color:#b79a63;font-size:clamp(.72rem,3vw,.9rem);text-align:center;max-width:34em}
+.status{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.4rem .85rem;
+  font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;color:#a98d55}
+.status b{color:#f0cf87;font-weight:400}
+.btn{font-family:inherit;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;
+  background:#241a0f;border:1px solid #8a6a33;color:#ecd193;padding:.34rem .75rem;border-radius:4px;cursor:pointer;
+  transition:background .15s,box-shadow .15s}
+.btn:hover{background:#33240f;box-shadow:0 0 10px rgba(240,200,110,.25)}
+.btn.ghost{background:transparent}
+button:focus-visible{outline:2px solid #ffdf8e;outline-offset:2px}
+.board{position:relative;width:min(92vw,56dvh,500px);aspect-ratio:1;border-radius:8px;
+  background:linear-gradient(#181008,#0f0904);border:1px solid #6d5426;
+  box-shadow:0 0 0 6px #0d0905,0 0 0 7px #4a3818,0 18px 50px rgba(0,0,0,.75),inset 0 0 50px rgba(0,0,0,.75)}
+#grid{position:absolute;inset:5.5556%;display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr)}
+.cell{position:relative;box-shadow:inset 0 0 0 1px rgba(216,169,78,.09);background:rgba(255,214,130,.015)}
+.cell.alt{background:rgba(255,214,130,.045)}
+button.cell{appearance:none;border:0;cursor:pointer;
+  background:radial-gradient(circle at 35% 30%,#3b2c16,#170f07 78%)}
+button.cell::before{content:"";position:absolute;inset:11%;border-radius:50%;border:1px solid rgba(216,169,78,.35);pointer-events:none}
+button.cell:hover::before{border-color:rgba(255,223,142,.7);box-shadow:0 0 8px rgba(255,223,142,.25)}
+button.cell:active .rod{filter:brightness(1.5)}
+button.cell:focus-visible{outline:2px solid #ffdf8e;outline-offset:-3px;z-index:2}
+.rod{position:absolute;left:15%;right:15%;top:46%;height:8%;border-radius:99px;pointer-events:none;
+  background:linear-gradient(180deg,#ffe6a8,#c9963f 60%,#8a6428);
+  box-shadow:0 0 6px rgba(255,220,150,.5);transition:transform .22s cubic-bezier(.34,1.45,.64,1)}
+.pin{position:absolute;left:46%;top:46%;width:8%;height:8%;border-radius:50%;background:#f7dfa2;
+  box-shadow:0 0 5px #f7dfa2;pointer-events:none}
+.gem{position:absolute;inset:27%;transform:rotate(45deg);border-radius:16%;background:var(--c);
+  opacity:.32;filter:saturate(.45) brightness(.65);transition:opacity .25s,filter .25s,box-shadow .25s;
+  box-shadow:inset 0 0 6px rgba(0,0,0,.6);pointer-events:none}
+.gem.lit{opacity:1;filter:none;animation:gpop .35s;
+  box-shadow:0 0 16px 4px var(--c),inset 0 -4px 8px rgba(0,0,0,.35),inset 0 3px 6px rgba(255,255,255,.55)}
+.g0{--c:#57e6b0}.g1{--c:#ff7a7a}.g2{--c:#7ec3ff}.g3{--c:#d99bff}
+@keyframes gpop{from{transform:rotate(45deg) scale(.6)}to{transform:rotate(45deg) scale(1)}}
+svg#beam{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:3;overflow:visible}
+#bC{animation:flick 2.4s infinite ease-in-out}
+@keyframes flick{0%,100%{stroke-opacity:.95}50%{stroke-opacity:.72}}
+.ovl{position:fixed;inset:0;background:rgba(8,5,2,.84);display:flex;align-items:center;justify-content:center;z-index:50;padding:1rem}
+.ovl[hidden]{display:none}
+.panel{background:linear-gradient(#211710,#140d06);border:1px solid #8a6a33;border-radius:10px;
+  box-shadow:0 0 0 4px #0d0905,0 0 70px rgba(0,0,0,.85),inset 0 0 30px rgba(0,0,0,.5);
+  padding:1.3rem 1.4rem;max-width:440px;width:min(92vw,440px);text-align:center;max-height:88dvh;overflow:auto}
+.panel h2{font-weight:400;letter-spacing:.22em;text-transform:uppercase;color:#f0cf87;font-size:1.15rem;margin:.35rem 0 .7rem}
+.panel p{font-size:.88rem;line-height:1.5;color:#cbb37e;margin:.45rem 0}
+.panel .orn{color:#8a6a33;letter-spacing:.5em;font-size:.8rem}
+.panel .big{font-size:1.05rem;color:#f0cf87}
+.row{display:flex;gap:.6rem;justify-content:center;margin-top:.9rem;flex-wrap:wrap}
+.legend{display:flex;justify-content:center;gap:1.4rem;margin:.7rem 0;align-items:center}
+.legend .li{font-size:.72rem;color:#a98d55;letter-spacing:.1em;text-transform:uppercase}
+.legend .sw{display:inline-block;width:14px;height:14px;vertical-align:-2px;margin-right:.35rem}
+.legend .mm{background:linear-gradient(180deg,#ffe6a8,#8a6428);height:4px;width:18px;border-radius:9px;transform:rotate(-45deg)}
+.legend .gg{background:#57e6b0;transform:rotate(45deg);border-radius:3px;box-shadow:0 0 8px #57e6b0}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1><span class="orn">✦ </span>Lumen Vault<span class="orn"> ✦</span></h1>
+  <p class="tag">Flip the brass mirrors — bend one ray of lamplight to set every gem aglow.</p>
+  <div class="status" aria-live="polite">
+    <span>No. <b id="dnum"></b></span>
+    <span>Gems <b><span id="lit">0</span>/4</b></span>
+    <span>Flips <b id="flips">0</b></span>
+    <span>Par <b id="par"></b></span>
+    <button class="btn ghost" id="howbtn" aria-label="How to play">?</button>
+    <button class="btn ghost" id="resetbtn">Reset</button>
+  </div>
+  <div class="board">
+    <div id="grid"></div>
+    <svg id="beam" viewBox="-50 -50 900 900" aria-hidden="true">
+      <g id="emit"></g>
+      <polyline id="bA" fill="none" stroke="#ffdf9a" stroke-opacity=".14" stroke-width="17" stroke-linejoin="round" stroke-linecap="round"/>
+      <polyline id="bB" fill="none" stroke="#ffdf9a" stroke-opacity=".45" stroke-width="7" stroke-linejoin="round" stroke-linecap="round"/>
+      <polyline id="bC" fill="none" stroke="#fff6dd" stroke-opacity=".95" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+    </svg>
+  </div>
+</div>
+
+<div class="ovl" id="howovl" hidden role="dialog" aria-modal="true" aria-labelledby="howh">
+  <div class="panel">
+    <div class="orn">✦ ✦ ✦</div>
+    <h2 id="howh">How to Play</h2>
+    <p>A single ray of lamplight enters the vault. <b style="color:#f0cf87">Tap any brass mirror</b> to flip its tilt — the ray bends wherever it strikes one.</p>
+    <div class="legend">
+      <span class="li"><span class="sw mm"></span>mirror</span>
+      <span class="li"><span class="sw gg"></span>gem</span>
+    </div>
+    <p>Light <b style="color:#f0cf87">all four gems at once</b> to open the vault. Gems glow when the ray passes through them; they never block it.</p>
+    <p>Every flip counts. Match the <b style="color:#f0cf87">par</b> — the fewest flips possible — for a perfect ray. Reset any time to try again.</p>
+    <div class="row"><button class="btn" id="howclose">Begin</button></div>
+  </div>
+</div>
+
+<div class="ovl" id="winovl" hidden role="dialog" aria-modal="true" aria-labelledby="winh">
+  <div class="panel">
+    <div class="orn">✦ ✦ ✦</div>
+    <h2 id="winh">Vault Illuminated</h2>
+    <p class="big" id="winstats"></p>
+    <p id="winsub"></p>
+    <div class="row">
+      <button class="btn" id="sharebtn">Copy result</button>
+      <button class="btn ghost" id="winclose">Admire the light</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+var N=8;
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function hashStr(s){var x=2166136261,i;for(i=0;i<s.length;i++){x^=s.charCodeAt(i);x=Math.imul(x,16777619);}return x>>>0;}
+var now=new Date();
+var seedStr=now.getFullYear()+'-'+(now.getMonth()+1)+'-'+now.getDate();
+var dayNum=Math.floor(Date.UTC(now.getFullYear(),now.getMonth(),now.getDate())/864e5)-Math.floor(Date.UTC(2025,0,1)/864e5)+1;
+var rng=mulberry32(hashStr('lumen-'+seedStr));
+function ri(n){return Math.floor(rng()*n);}
+function shuf(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=ri(i+1),t=a[i];a[i]=a[j];a[j]=t;}return a;}
+function flip(o){return o==='/'?'\\':'/';}
+function refl(o,dx,dy){return o==='/'?[-dy,-dx]:[dy,dx];}
+function inb(x,y){return x>=0&&y>=0&&x<N&&y<N;}
+function K(x,y){return x+','+y;}
+function ls(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v);}catch(e){}return null;}
+
+function trace(orient,entry){
+  var x=entry.x,y=entry.y,dx=entry.dx,dy=entry.dy;
+  var pts=[[x*100+50-dx*70,y*100+50-dy*70]];
+  var order=[],set={},seen={},steps=0;
+  while(inb(x,y)&&steps++<400){
+    var sk=x+','+y+','+dx+','+dy;
+    if(seen[sk])break;
+    seen[sk]=1;
+    var k=K(x,y);
+    if(!set[k]){set[k]=1;order.push([x,y]);}
+    var o=orient[k];
+    if(o){pts.push([x*100+50,y*100+50]);var nd=refl(o,dx,dy);dx=nd[0];dy=nd[1];}
+    x+=dx;y+=dy;
+  }
+  if(!inb(x,y))pts.push([(x-dx)*100+50+dx*70,(y-dy)*100+50+dy*70]);
+  else pts.push([x*100+50,y*100+50]);
+  return {pts:pts,set:set,order:order};
+}
+function gemsLit(tr,gems){for(var i=0;i<4;i++)if(!tr.set[K(gems[i][0],gems[i][1])])return false;return true;}
+
+function tryGen(minM){
+  var side=ri(4),off=1+ri(N-2),cx,cy,dx,dy,i;
+  if(side===0){cx=0;cy=off;dx=1;dy=0;}
+  else if(side===1){cx=N-1;cy=off;dx=-1;dy=0;}
+  else if(side===2){cx=off;cy=0;dx=0;dy=1;}
+  else{cx=off;cy=N-1;dx=0;dy=-1;}
+  var entry={x:cx,y:cy,dx:dx,dy:dy};
+  var sol={},keys=[],visited={};
+  visited[K(cx,cy)]=1;
+  var x=cx,y=cy,T=6+ri(2),t;
+  for(t=0;t<T;t++){
+    var lens=shuf([2,3,4]),placed=false;
+    for(var li=0;li<lens.length&&!placed;li++){
+      var L=lens[li],ok=true;
+      for(i=1;i<=L;i++){var nx=x+dx*i,ny=y+dy*i;if(!inb(nx,ny)||visited[K(nx,ny)]){ok=false;break;}}
+      if(!ok)continue;
+      var mx=x+dx*L,my=y+dy*L,oo=shuf(['/','\\']);
+      for(var oi=0;oi<2&&!placed;oi++){
+        var nd=refl(oo[oi],dx,dy),px=mx+nd[0],py=my+nd[1];
+        if(inb(px,py)&&!visited[K(px,py)]){
+          for(i=1;i<=L;i++)visited[K(x+dx*i,y+dy*i)]=1;
+          sol[K(mx,my)]=oo[oi];keys.push(K(mx,my));
+          x=mx;y=my;dx=nd[0];dy=nd[1];placed=true;
+        }
+      }
+    }
+    if(!placed)break;
+  }
+  if(keys.length<minM)return null;
+  var tr=trace(sol,entry);
+  var firstM=-1;
+  for(i=0;i<tr.order.length;i++){if(sol[K(tr.order[i][0],tr.order[i][1])]){firstM=i;break;}}
+  if(firstM<0)return null;
+  var cand=[];
+  for(i=firstM+1;i<tr.order.length;i++){var c=tr.order[i];if(!sol[K(c[0],c[1])])cand.push(c);}
+  if(cand.length<4)return null;
+  var gems=[],used={};
+  for(i=0;i<4;i++){
+    var idx=Math.floor((i+0.5)*cand.length/4);
+    while(idx<cand.length&&used[K(cand[idx][0],cand[idx][1])])idx++;
+    if(idx>=cand.length)return null;
+    used[K(cand[idx][0],cand[idx][1])]=1;
+    gems.push(cand[idx]);
+  }
+  var start=null;
+  for(var att=0;att<40&&!start;att++){
+    var s={},fl=0;
+    for(i=0;i<keys.length;i++){var f=rng()<0.5;s[keys[i]]=f?flip(sol[keys[i]]):sol[keys[i]];if(f)fl++;}
+    if(fl<2)continue;
+    if(!gemsLit(trace(s,entry),gems))start=s;
+  }
+  if(!start)return null;
+  var M=keys.length,par=99,mask,b;
+  for(mask=0;mask<(1<<M);mask++){
+    var pc=0,cfg={};
+    for(b=0;b<M;b++){var fb=(mask>>b)&1;pc+=fb;cfg[keys[b]]=fb?flip(start[keys[b]]):start[keys[b]];}
+    if(pc>=par)continue;
+    if(gemsLit(trace(cfg,entry),gems))par=pc;
+  }
+  if(par<1||par>=99)return null;
+  return {entry:entry,keys:keys,start:start,gems:gems,par:par};
+}
+
+var P=null,a;
+for(a=0;a<400&&!P;a++)P=tryGen(5);
+for(a=0;a<400&&!P;a++)P=tryGen(4);
+if(!P){P=tryGen(3)||tryGen(2);} // practically unreachable fallback
+// final guaranteed fallback (fixed tiny puzzle) — should never trigger
+if(!P){
+  var e0={x:0,y:3,dx:1,dy:0},s0={},k0=['2,3','2,1','5,1'];
+  s0['2,3']='\\';s0['2,1']='\\';s0['5,1']='/';
+  P={entry:e0,keys:k0,start:s0,gems:[[1,3],[2,2],[3,1],[4,1]],par:2};
+}
+
+var cur={},flips=0,won=false,i;
+function resetState(){cur={};for(i=0;i<P.keys.length;i++)cur[P.keys[i]]=P.start[P.keys[i]];flips=0;won=false;}
+resetState();
+
+var $=function(id){return document.getElementById(id);};
+var grid=$('grid'),rodEl={},gemEl=[],gemPos={};
+for(i=0;i<4;i++)gemPos[K(P.gems[i][0],P.gems[i][1])]=i;
+
+function ariaFor(x,y){return 'Mirror at row '+(y+1)+', column '+(x+1)+', tilted '+(cur[K(x,y)]==='/'?'slash':'backslash');}
+
+(function build(){
+  for(var y=0;y<N;y++)for(var x=0;x<N;x++){
+    var k=K(x,y),el;
+    if(P.start[k]){
+      el=document.createElement('button');
+      el.type='button';
+      el.className='cell'+(((x+y)%2)?' alt':'');
+      el.dataset.k=k;el.dataset.x=x;el.dataset.y=y;
+      var rod=document.createElement('span');rod.className='rod';
+      var pin=document.createElement('span');pin.className='pin';
+      el.appendChild(rod);el.appendChild(pin);
+      rodEl[k]=rod;
+      el.addEventListener('click',onFlip);
+    }else{
+      el=document.createElement('div');
+      el.className='cell'+(((x+y)%2)?' alt':'');
+    }
+    if(gemPos[k]!==undefined){
+      var g=document.createElement('span');
+      g.className='gem g'+gemPos[k];
+      gemEl[gemPos[k]]=g;
+      el.appendChild(g);
+    }
+    grid.appendChild(el);
+  }
+  // emitter lamp
+  var p0x=P.entry.x*100+50-P.entry.dx*70,p0y=P.entry.y*100+50-P.entry.dy*70;
+  $('emit').innerHTML='<circle cx="'+p0x+'" cy="'+p0y+'" r="30" fill="rgba(255,220,150,.12)"/>'+
+    '<circle cx="'+p0x+'" cy="'+p0y+'" r="13" fill="rgba(255,220,150,.35)"/>'+
+    '<circle cx="'+p0x+'" cy="'+p0y+'" r="7" fill="#ffdf9a"/>'+
+    '<circle cx="'+p0x+'" cy="'+p0y+'" r="3" fill="#fff8e6"/>';
+})();
+
+function refresh(){
+  var k,x,y;
+  for(i=0;i<P.keys.length;i++){
+    k=P.keys[i];
+    rodEl[k].style.transform=cur[k]==='/'?'rotate(-45deg)':'rotate(45deg)';
+    var btn=rodEl[k].parentNode;
+    x=+btn.dataset.x;y=+btn.dataset.y;
+    btn.setAttribute('aria-label',ariaFor(x,y));
+  }
+  var tr=trace(cur,P.entry);
+  var ptStr='';
+  for(i=0;i<tr.pts.length;i++)ptStr+=tr.pts[i][0]+','+tr.pts[i][1]+' ';
+  $('bA').setAttribute('points',ptStr);
+  $('bB').setAttribute('points',ptStr);
+  $('bC').setAttribute('points',ptStr);
+  var lit=0;
+  for(i=0;i<4;i++){
+    var on=!!tr.set[K(P.gems[i][0],P.gems[i][1])];
+    gemEl[i].classList.toggle('lit',on);
+    if(on)lit++;
+  }
+  $('lit').textContent=lit;
+  $('flips').textContent=flips;
+  if(lit===4&&!won){won=true;setTimeout(showWin,500);}
+}
+
+function onFlip(e){
+  var k=e.currentTarget.dataset.k;
+  cur[k]=flip(cur[k]);
+  if(!won)flips++;
+  refresh();
+}
+
+function showWin(){
+  var perfect=flips<=P.par;
+  $('winstats').textContent='All 4 gems lit in '+flips+' flip'+(flips===1?'':'s')+' — par '+P.par+'.';
+  var bk='lumenvault-best-'+seedStr,best=ls(bk);
+  if(best===null||flips<+best){ls(bk,''+flips);best=''+flips;}
+  $('winsub').textContent=(perfect?'A flawless ray. The vault yields its treasure.':'The vault opens… but a rarer ray exists. Reset to chase par.')+' Best today: '+best+' flips.';
+  $('winovl').hidden=false;
+  $('sharebtn').focus();
+}
+
+function shareText(){
+  var perfect=flips<=P.par;
+  return 'Lumen Vault #'+dayNum+'\n💎💎💎💎 lit in '+flips+' flips (par '+P.par+')'+(perfect?' 🏆':'')+'\n🕯️→✨';
+}
+$('sharebtn').addEventListener('click',function(){
+  var t=shareText(),btn=$('sharebtn');
+  function done(){btn.textContent='Copied!';setTimeout(function(){btn.textContent='Copy result';},1500);}
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t).then(done,function(){fallback();});
+  }else fallback();
+  function fallback(){
+    try{
+      var ta=document.createElement('textarea');
+      ta.value=t;ta.style.position='fixed';ta.style.opacity='0';
+      document.body.appendChild(ta);ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);done();
+    }catch(e){}
+  }
+});
+
+$('resetbtn').addEventListener('click',function(){resetState();refresh();});
+$('winclose').addEventListener('click',function(){$('winovl').hidden=true;});
+$('howbtn').addEventListener('click',function(){$('howovl').hidden=false;$('howclose').focus();});
+$('howclose').addEventListener('click',function(){$('howovl').hidden=true;ls('lumenvault-seen','1');});
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape'){$('howovl').hidden=true;$('winovl').hidden=true;}
+});
+
+$('dnum').textContent=dayNum;
+$('par').textContent=P.par;
+if(!ls('lumenvault-seen'))$('howovl').hidden=false;
+refresh();
+})();
+</script>
+</body>
+</html>
