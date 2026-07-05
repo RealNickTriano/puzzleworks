@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<!-- PUZZLE-META {"title":"Glasswright","tagline":"Layer panes of coloured glass so their light mixes into the commissioned rose window.","difficulty":"hard","summary":"A tray of 15 shaped glass panes (red, yellow, blue) can each be slotted into or lifted from a 5x5 leaded window; wherever lit panes overlap, their primaries mix (R+Y=orange, R+B=violet, Y+B=green, all three=white) and the player must make the window exactly match a target mosaic, ideally in the par number of flips via pure deduction. Any subset-selection / additive colour-mixing / translucent-layer-matching mechanic would be a clone of this. Visual style: a candlelit gothic cathedral workshop — near-black violet stone, antique gold serif type, and glowing jewel-glass cells with lead-line grids."} -->
+<title>Glasswright</title>
+<style>
+:root{
+  --gold:#c9a75a; --goldhi:#eed49a; --ink:#0e0b10; --panel:#1c1622; --lead:#090709;
+  --paper:#e8dcc0; --dim:#9b8d74;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  background:radial-gradient(1100px 700px at 50% -8%, #2b2236 0%, #191320 55%, #0d0a10 100%);
+  color:var(--paper);
+  font-family:Georgia,'Times New Roman',serif;
+  display:flex;justify-content:center;
+  overflow:auto;
+}
+#app{width:100%;max-width:520px;padding:10px 12px 16px;display:flex;flex-direction:column;align-items:center}
+header{text-align:center;margin-bottom:4px}
+h1{
+  font-size:clamp(26px,7vw,34px);letter-spacing:.28em;font-weight:400;
+  font-variant:small-caps;color:var(--goldhi);
+  text-shadow:0 0 18px rgba(201,167,90,.35);
+}
+h1::before{content:"✦ ";color:var(--gold);font-size:.6em;vertical-align:.25em}
+h1::after{content:" ✦";color:var(--gold);font-size:.6em;vertical-align:.25em}
+.tag{font-style:italic;color:var(--dim);font-size:clamp(11px,3.2vw,13px);margin-top:2px}
+.hbtns{display:flex;gap:8px;justify-content:center;margin-top:8px}
+button{
+  font-family:inherit;font-variant:small-caps;letter-spacing:.08em;
+  background:var(--panel);color:var(--paper);
+  border:1px solid #5c4b33;border-radius:5px;
+  padding:5px 12px;font-size:13px;cursor:pointer;
+  transition:border-color .15s,box-shadow .15s,transform .1s;
+  touch-action:manipulation;
+}
+button:hover{border-color:var(--gold)}
+button:focus-visible{outline:2px solid var(--goldhi);outline-offset:2px}
+.stats{display:flex;gap:18px;margin:8px 0 6px;font-size:13px;color:var(--dim);font-variant:small-caps;letter-spacing:.1em}
+.stats b{color:var(--goldhi);font-size:15px;margin-left:4px}
+.windows{display:flex;gap:12px;width:100%;justify-content:center}
+.winbox{flex:1;max-width:225px;min-width:0}
+.wlabel{
+  text-align:center;font-variant:small-caps;letter-spacing:.18em;
+  color:var(--gold);font-size:clamp(10px,2.8vw,12px);margin-bottom:4px;
+}
+.grid{
+  display:grid;grid-template-columns:repeat(5,1fr);gap:3px;
+  background:var(--lead);padding:4px;border-radius:7px;
+  border:2px solid #6b5836;box-shadow:0 0 0 1px #000,0 6px 22px rgba(0,0,0,.6),inset 0 0 14px #000;
+}
+.cell{aspect-ratio:1;border-radius:2px;position:relative;transition:background .25s,box-shadow .25s}
+.c0{background:radial-gradient(circle at 40% 32%,#2b2530,#191420 75%);box-shadow:inset 0 0 8px #000}
+.cR{background:radial-gradient(circle at 38% 30%,#ef7a72,#b8262b 75%);box-shadow:inset 0 0 6px rgba(60,0,0,.6),0 0 9px rgba(220,60,60,.35)}
+.cY{background:radial-gradient(circle at 38% 30%,#ffe08a,#d99a22 75%);box-shadow:inset 0 0 6px rgba(90,55,0,.55),0 0 9px rgba(230,180,60,.35)}
+.cB{background:radial-gradient(circle at 38% 30%,#7ba4ef,#2b57b8 78%);box-shadow:inset 0 0 6px rgba(0,10,60,.6),0 0 9px rgba(70,120,230,.35)}
+.cO{background:radial-gradient(circle at 38% 30%,#ffb066,#d8641c 78%);box-shadow:inset 0 0 6px rgba(80,30,0,.6),0 0 9px rgba(235,130,50,.35)}
+.cV{background:radial-gradient(circle at 38% 30%,#c48ae8,#7a3cb4 78%);box-shadow:inset 0 0 6px rgba(35,0,60,.6),0 0 9px rgba(160,90,220,.35)}
+.cG{background:radial-gradient(circle at 38% 30%,#8ad39a,#2f8a4c 78%);box-shadow:inset 0 0 6px rgba(0,45,15,.6),0 0 9px rgba(80,190,110,.35)}
+.cW{background:radial-gradient(circle at 38% 30%,#fffdf2,#e8d9ae 80%);box-shadow:inset 0 0 5px rgba(120,100,50,.5),0 0 12px rgba(255,245,210,.5)}
+.cell.hl::after{content:"";position:absolute;inset:0;border:2px solid var(--goldhi);border-radius:2px;box-shadow:0 0 8px rgba(238,212,154,.8)}
+.cell.pz{animation:pz .3s ease}
+@keyframes pz{0%{transform:scale(.78)}100%{transform:scale(1)}}
+.traylabel{margin:12px 0 5px}
+#tray{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;width:100%;max-width:400px}
+.pane{padding:5px 5px 3px;border-radius:6px;background:var(--panel);border:1px solid #4a3c2c;display:flex;flex-direction:column;align-items:center;gap:2px}
+.pane[aria-pressed="true"]{border-color:var(--goldhi);background:#2a2130;box-shadow:0 0 10px rgba(201,167,90,.4),inset 0 0 8px rgba(201,167,90,.15)}
+.pane:active{transform:scale(.94)}
+.mini{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;width:100%;aspect-ratio:1;pointer-events:none}
+.mini i{background:#0d0a10;border-radius:1px}
+.mini .mR{background:#c23a37}.mini .mY{background:#dda32c}.mini .mB{background:#3760c0}
+.pane[aria-pressed="true"] .mR{background:#f27b70}.pane[aria-pressed="true"] .mY{background:#ffd570}.pane[aria-pressed="true"] .mB{background:#7fa4f5}
+.pnum{font-size:9px;color:var(--gold);letter-spacing:.08em;pointer-events:none}
+.overlay{position:fixed;inset:0;background:rgba(8,5,10,.82);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
+.overlay[hidden]{display:none}
+.modal{
+  background:linear-gradient(170deg,#241c2e,#171119);color:var(--paper);
+  border:1px solid var(--gold);border-radius:10px;max-width:420px;width:100%;
+  padding:20px 22px;box-shadow:0 0 40px rgba(201,167,90,.25),0 20px 50px rgba(0,0,0,.7);
+  max-height:88vh;overflow:auto;
+}
+.modal h2{font-variant:small-caps;letter-spacing:.2em;color:var(--goldhi);font-weight:400;text-align:center;font-size:20px;margin-bottom:10px}
+.modal p{font-size:13.5px;line-height:1.55;margin-bottom:9px;color:#d8cbae}
+.mixrow{display:flex;justify-content:center;gap:4px;align-items:center;font-size:13px;flex-wrap:wrap;margin-bottom:10px}
+.chip{display:inline-block;width:16px;height:16px;border-radius:3px;vertical-align:-3px;box-shadow:inset 0 0 4px rgba(0,0,0,.5)}
+.mbtns{display:flex;gap:10px;justify-content:center;margin-top:12px}
+.gbtn{background:#3a2e1c;border-color:var(--gold);color:var(--goldhi)}
+.winflips{text-align:center;font-size:16px;color:var(--goldhi);margin:8px 0}
+.wingrid{display:grid;grid-template-columns:repeat(5,26px);gap:3px;justify-content:center;background:var(--lead);padding:4px;border-radius:6px;width:max-content;margin:10px auto;border:2px solid #6b5836}
+.wingrid div{width:26px;height:26px;border-radius:2px}
+.flawless{text-align:center;font-style:italic;color:var(--gold);font-size:13px}
+@media (prefers-reduced-motion: reduce){
+  *{transition:none!important;animation:none!important}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Glasswright</h1>
+    <p class="tag">Slot the right panes of glass to restore the rose of Saint-Lumière.</p>
+    <div class="hbtns">
+      <button id="helpBtn">How to play</button>
+      <button id="resetBtn">Lift all panes</button>
+    </div>
+  </header>
+  <div class="stats">
+    <span>flips<b id="flips">0</b></span>
+    <span>par<b>9</b></span>
+    <span>best<b id="best">—</b></span>
+  </div>
+  <div class="windows">
+    <div class="winbox"><div class="wlabel">The Commission</div><div class="grid" id="tgrid" aria-label="Target window"></div></div>
+    <div class="winbox"><div class="wlabel">Your Window</div><div class="grid" id="ygrid" aria-label="Your window"></div></div>
+  </div>
+  <div class="wlabel traylabel">Pane Tray — tap to slot or lift</div>
+  <div id="tray"></div>
+</div>
+
+<div class="overlay" id="helpOv" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="helpT">
+    <h2 id="helpT">How to Play</h2>
+    <p>The abbey has commissioned the window on the <b>left</b>. Yours, on the right, starts dark. In your tray are fifteen shaped panes of red, yellow and blue glass.</p>
+    <p><b>Tap a pane</b> to slot it into the window (tap again to lift it out). Every cell a pane covers takes on its colour — and where colours overlap, light mixes:</p>
+    <div class="mixrow">
+      <span class="chip cR"></span>+<span class="chip cY"></span>=<span class="chip cO"></span>&nbsp;&nbsp;
+      <span class="chip cR"></span>+<span class="chip cB"></span>=<span class="chip cV"></span>&nbsp;&nbsp;
+      <span class="chip cY"></span>+<span class="chip cB"></span>=<span class="chip cG"></span>&nbsp;&nbsp;
+      <span class="chip cR"></span>+<span class="chip cY"></span>+<span class="chip cB"></span>=<span class="chip cW"></span>
+    </div>
+    <p>Two panes of the <i>same</i> colour do not deepen it. Match the commission <b>exactly</b> in every cell to win.</p>
+    <p>Every flip — in or out — is counted. <b>Par is 9</b>: a true glasswright deduces the full answer before touching the tray. Beware — several panes fit the light almost everywhere…</p>
+    <div class="mbtns"><button class="gbtn" id="helpClose">Begin</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="winOv" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="winT">
+    <h2 id="winT">✦ Window Restored ✦</h2>
+    <div class="wingrid" id="winGrid"></div>
+    <p class="winflips" id="winStats"></p>
+    <p class="flawless" id="flawless" hidden>A flawless glazing — pure deduction. The abbot bows.</p>
+    <div class="mbtns">
+      <button class="gbtn" id="shareBtn">Copy result</button>
+      <button id="winClose">Admire</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   HAND-AUTHORED INSTANCE — designed & verified before coding.
+
+   Grid indices:   0  1  2  3  4
+                   5  6  7  8  9
+                  10 11 12 13 14
+                  15 16 17 18 19
+                  20 21 22 23 24
+
+   SOLUTION (panes ON): R1 R2 R3 Y1 Y2 Y3 B1 B2 B3  → 9 flips = par.
+   The target below is COMPUTED from this set, so it is solvable
+   by construction. Verified unique:
+     - No pane covers cells 4 or 5 (the dark cells give no foothold).
+     - Cell 0 red  → R1 forced.  Cell 14 red → R2. Cell 21 has red → R3.
+     - Trap Y4 refuted only by cell13 (violet, no yellow) → then cell 3 forces Y1.
+     - Cell 10 → Y2.  Cell 17 → Y3.
+     - Trap B4 refuted only by cell17 (yellow, no blue) → then cell 12 forces B1.
+     - Cell 9 → B2.  Trap B5 refuted only by cell23 → cell 20 forces B3.
+     - Trap R4 refuted only by cell12; trap R5 only by cell23;
+       trap Y5 only by cell21.  Each trap fits everywhere else.
+   ============================================================ */
+const PANES = [
+  {id:"R1",c:"R",cells:[0,1,6,7]},
+  {id:"R2",c:"R",cells:[13,14,18,19]},
+  {id:"R3",c:"R",cells:[11,16,21,22]},
+  {id:"R4",c:"R",cells:[6,7,11,12]},     // trap
+  {id:"R5",c:"R",cells:[18,19,22,23]},   // trap
+  {id:"Y1",c:"Y",cells:[2,3,7,8]},
+  {id:"Y2",c:"Y",cells:[10,11,15,16]},
+  {id:"Y3",c:"Y",cells:[17,18,22,23]},
+  {id:"Y4",c:"Y",cells:[2,3,8,13]},      // trap
+  {id:"Y5",c:"Y",cells:[15,16,21,22]},   // trap
+  {id:"B1",c:"B",cells:[1,2,6,11,12]},
+  {id:"B2",c:"B",cells:[8,9,13,19,24]},
+  {id:"B3",c:"B",cells:[15,16,20,21]},
+  {id:"B4",c:"B",cells:[12,13,16,17]},   // trap
+  {id:"B5",c:"B",cells:[19,20,23,24]}    // trap
+];
+const SOLUTION = ["R1","R2","R3","Y1","Y2","Y3","B1","B2","B3"];
+const PAR = 9;
+const TRAY_ORDER = ["R1","R5","B4","Y1","R2","Y4","B1","R4","Y5","B2","Y2","B5","R3","Y3","B3"];
+const ROMAN = ["I","II","III","IV","V","VI","VII","VIII","IX","X","XI","XII","XIII","XIV","XV"];
+const CMAP = {"":"c0","R":"cR","Y":"cY","B":"cB","RY":"cO","RB":"cV","YB":"cG","RYB":"cW"};
+const EMO  = {"":"⬛","R":"🟥","Y":"🟨","B":"🟦","RY":"🟧","RB":"🟪","YB":"🟩","RYB":"⬜"};
+const CNAME= {"":"dark","R":"red","Y":"yellow","B":"blue","RY":"orange","RB":"violet","YB":"green","RYB":"white"};
+
+const byId = {};
+PANES.forEach(p => byId[p.id] = p);
+
+function keysFor(onSet){
+  const keys = [];
+  for(let i=0;i<25;i++){
+    let k="";
+    for(const col of ["R","Y","B"]){
+      let hit=false;
+      for(const p of PANES){
+        if(p.c===col && onSet.has(p.id) && p.cells.indexOf(i)>=0){hit=true;break;}
+      }
+      if(hit) k+=col;
+    }
+    keys.push(k);
+  }
+  return keys;
+}
+const TARGET = keysFor(new Set(SOLUTION));
+
+/* ---------- state ---------- */
+let on = new Set();
+let flips = 0;
+let won = false;
+
+/* ---------- storage ---------- */
+function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+
+/* ---------- build DOM ---------- */
+const tgrid = document.getElementById("tgrid");
+const ygrid = document.getElementById("ygrid");
+const yCells = [];
+for(let i=0;i<25;i++){
+  const t=document.createElement("div");
+  t.className="cell "+CMAP[TARGET[i]];
+  tgrid.appendChild(t);
+  const y=document.createElement("div");
+  y.className="cell c0";
+  ygrid.appendChild(y);
+  yCells.push(y);
+}
+
+const tray = document.getElementById("tray");
+TRAY_ORDER.forEach((pid,idx)=>{
+  const p = byId[pid];
+  const b = document.createElement("button");
+  b.className="pane";
+  b.dataset.id=pid;
+  b.setAttribute("aria-pressed","false");
+  b.setAttribute("aria-label","Pane "+ROMAN[idx]+", "+CNAME[p.c]+" glass");
+  const mini=document.createElement("span");
+  mini.className="mini";
+  for(let i=0;i<25;i++){
+    const cell=document.createElement("i");
+    if(p.cells.indexOf(i)>=0) cell.className="m"+p.c;
+    mini.appendChild(cell);
+  }
+  b.appendChild(mini);
+  const num=document.createElement("span");
+  num.className="pnum";
+  num.textContent=ROMAN[idx];
+  b.appendChild(num);
+  b.addEventListener("click",()=>toggle(pid,b));
+  b.addEventListener("pointerenter",()=>highlight(p.cells,true));
+  b.addEventListener("pointerleave",()=>highlight(p.cells,false));
+  b.addEventListener("focus",()=>highlight(p.cells,true));
+  b.addEventListener("blur",()=>highlight(p.cells,false));
+  tray.appendChild(b);
+});
+
+function highlight(cells,onOff){
+  cells.forEach(i=>yCells[i].classList.toggle("hl",onOff));
+}
+
+/* ---------- game logic ---------- */
+const flipsEl=document.getElementById("flips");
+const bestEl=document.getElementById("best");
+const savedBest=lsGet("gw_best");
+if(savedBest) bestEl.textContent=savedBest;
+
+function renderYours(pulseCells){
+  const keys=keysFor(on);
+  for(let i=0;i<25;i++){
+    const cls="cell "+CMAP[keys[i]]+(yCells[i].classList.contains("hl")?" hl":"");
+    yCells[i].className=cls;
+    if(pulseCells && pulseCells.indexOf(i)>=0){
+      yCells[i].classList.add("pz");
+      (function(el){ setTimeout(()=>el.classList.remove("pz"),320); })(yCells[i]);
+    }
+  }
+  return keys;
+}
+
+function toggle(pid,btn){
+  if(won) return;
+  if(on.has(pid)) on.delete(pid); else on.add(pid);
+  btn.setAttribute("aria-pressed", on.has(pid)?"true":"false");
+  flips++;
+  flipsEl.textContent=flips;
+  const keys=renderYours(byId[pid].cells);
+  let match=true;
+  for(let i=0;i<25;i++){ if(keys[i]!==TARGET[i]){match=false;break;} }
+  if(match) win();
+}
+
+function win(){
+  won=true;
+  const prev=lsGet("gw_best");
+  if(!prev || flips<parseInt(prev,10)){ lsSet("gw_best",String(flips)); bestEl.textContent=flips; }
+  document.getElementById("winStats").textContent="Restored in "+flips+" flip"+(flips===1?"":"s")+" — par "+PAR+".";
+  document.getElementById("flawless").hidden=(flips!==PAR);
+  const wg=document.getElementById("winGrid");
+  wg.innerHTML="";
+  for(let i=0;i<25;i++){
+    const d=document.createElement("div");
+    d.className=CMAP[TARGET[i]];
+    wg.appendChild(d);
+  }
+  setTimeout(()=>{ showOv(winOv); },420);
+}
+
+document.getElementById("resetBtn").addEventListener("click",()=>{
+  on=new Set(); flips=0; won=false;
+  flipsEl.textContent="0";
+  document.querySelectorAll(".pane").forEach(b=>b.setAttribute("aria-pressed","false"));
+  renderYours(null);
+});
+
+/* ---------- modals ---------- */
+const helpOv=document.getElementById("helpOv");
+const winOv=document.getElementById("winOv");
+function showOv(ov){ ov.hidden=false; const b=ov.querySelector("button"); if(b) b.focus(); }
+function hideOv(ov){ ov.hidden=true; }
+document.getElementById("helpBtn").addEventListener("click",()=>showOv(helpOv));
+document.getElementById("helpClose").addEventListener("click",()=>{ hideOv(helpOv); lsSet("gw_seen","1"); });
+document.getElementById("winClose").addEventListener("click",()=>hideOv(winOv));
+[helpOv,winOv].forEach(ov=>{
+  ov.addEventListener("click",e=>{ if(e.target===ov) hideOv(ov); });
+});
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"){ hideOv(helpOv); hideOv(winOv); }
+});
+if(!lsGet("gw_seen")) showOv(helpOv);
+
+/* ---------- share ---------- */
+function shareText(){
+  let rows=[];
+  for(let r=0;r<5;r++){
+    let s="";
+    for(let c=0;c<5;c++) s+=EMO[TARGET[r*5+c]];
+    rows.push(s);
+  }
+  return "Glasswright — The Rose of Saint-Lumière\nRestored in "+flips+" flips (par "+PAR+") ✦\n"+rows.join("\n");
+}
+const shareBtn=document.getElementById("shareBtn");
+shareBtn.addEventListener("click",()=>{
+  const t=shareText();
+  const done=()=>{ shareBtn.textContent="Copied!"; setTimeout(()=>{shareBtn.textContent="Copy result";},1600); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t).then(done,()=>fallbackCopy(t,done));
+  } else fallbackCopy(t,done);
+});
+function fallbackCopy(t,cb){
+  try{
+    const ta=document.createElement("textarea");
+    ta.value=t; ta.style.position="fixed"; ta.style.opacity="0";
+    document.body.appendChild(ta); ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+  }catch(e){}
+  cb();
+}
+</script>
+</body>
+</html>

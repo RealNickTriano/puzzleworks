@@ -2,6 +2,15 @@
   "site": "Puzzleworks",
   "puzzles": [
     {
+      "date": "2026-07-05",
+      "file": "puzzles/2026-07-05.html",
+      "title": "Glasswright",
+      "tagline": "Layer panes of coloured glass so their light mixes into the commissioned rose window.",
+      "difficulty": "hard",
+      "summary": "A tray of 15 shaped glass panes (red, yellow, blue) can each be slotted into or lifted from a 5x5 leaded window; wherever lit panes overlap, their primaries mix (R+Y=orange, R+B=violet, Y+B=green, all three=white) and the player must make the window exactly match a target mosaic, ideally in the par number of flips via pure deduction. Any subset-selection / additive colour-mixing / translucent-layer-matching mechanic would be a clone of this. Visual style: a candlelit gothic cathedral workshop — near-black violet stone, antique gold serif type, and glowing jewel-glass cells with lead-line grids.",
+      "model": "claude-fable-5"
+    },
+    {
       "date": "2026-07-04",
       "file": "puzzles/2026-07-04.html",
       "title": "Lumen Vault",
